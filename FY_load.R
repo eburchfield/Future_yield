@@ -3,11 +3,18 @@ library(sp)
 library(raster)
 library(spdplyr)
 library(visreg)
+library(mgcv)
+library(lme4)
+library(gstat)
+library(rasterVis)
+select <- dplyr::select
 
 # PRISM data constructed in stack_data.R on D drive and run using the extract_panels_GDD script in SESYNC cluster
 # Shapefiles, SA_counties_analyzed original dataset, updated with season stop start as coi_startstop.RDS
 
 coi <- readRDS("./data/coi_stopstart.RDS")
+county <- readRDS("./data/county.RDS")
+coist <- readRDS("./data/states.RDS")
 
 ################################################################################################################################
 # Station coordinates to shapefile
@@ -35,6 +42,17 @@ coords_sp <- readRDS("./data/coords_sp.RDS")
 # comment(rain) <- "rain"
 # tmax <- read.table("./data/master_tmax_214.txt")
 # comment(tmax) <- "tmax"
+
+################################################################################################################################
+# Irrigation subset
+################################################################################################################################
+
+irr <- readRDS("./data/irr.RDS") %>%
+  filter(GEOID %in% unique(coi$GEOID)) %>%
+  mutate(PERC = IRRIGATED_ACRES/TOTAL_ACRES) %>%
+  filter(PERC < 0.5)
+irr_list <- unique(irr$GEOID)
+
 
 ################################################################################################################################
 # GDD parameters
@@ -67,28 +85,44 @@ var_range[["SDI"]] <- c(0, 14)
 # Historical PRISM data
 ################################################################################################################################
 
-ppt <- readRDS("./data/prism_ppt_roi.RDS")
-tmax <- readRDS("./data/prism_tmax_roi.RDS")
+# ppt <- readRDS("./data/prism_ppt_roi.RDS")
+# tmax <- readRDS("./data/prism_tmax_roi.RDS")
+
+################################################################################################################################
+# CO2 scaling from Attavanich
+################################################################################################################################
+
+# from 1990 - 2010
+# amount of tech trend explained by tech
+co2 <- list()
+co2[["corn"]] <- c(.08)
+co2[["soy"]] <- c(.13)
+co2[["wheat"]] <- c(.15)
+co2[["wwheat"]] <- c(.15)
+co2[["cotton"]] <- c(.34)
+
+# 7-22, 4-47, 5-26, 65-96, and 3-35 % for yields of corn, sorghum, soybeans, cotton, and wheat, respectively.
 
 ################################################################################################################################
 # Model results
 ################################################################################################################################
 
-corn <- readRDS("./out/panels/corn_PRISM.RDS")
-cotton <- readRDS("./out/panels/cotton_PRISM.RDS")
-cotton$Yield <- cotton$Yield/32 # from pounds/acre to bushels/acre
-soy <- readRDS("./out/panels/soy_PRISM.RDS")
-wwheat <- readRDS("./out/panels/wwheat_PRISM.RDS")
-corn$Year <- corn$YEAR
-cotton$Year <- cotton$YEAR
-soy$Year <- soy$YEAR
-wwheat$Year <- wwheat$YEAR
+# corn <- readRDS("./out/panels/corn_PRISM.RDS")
+# cotton <- readRDS("./out/panels/cotton_PRISM.RDS")
+# cotton$Yield <- cotton$Yield/32 # from pounds/acre to bushels/acre
+# soy <- readRDS("./out/panels/soy_PRISM.RDS")
+# wwheat <- readRDS("./out/panels/wwheat_PRISM.RDS")
+# corn$Year <- corn$YEAR
+# cotton$Year <- cotton$YEAR
+# soy$Year <- soy$YEAR
+# wwheat$Year <- wwheat$YEAR
+# 
+# corn_data <- readRDS("./out/model_results/corn_PRISM.RDS")
+# cotton_data <- readRDS("./out/model_results/cotton_PRISM.RDS")
+# soy_data <- readRDS("./out/model_results/soy_PRISM.RDS")
+# wwheat_data <- readRDS("./out/model_results/wwheat_PRISM.RDS")
+# corn_mod <- readRDS("./out/model_results/corn_mod_PRISM.RDS")
+# cotton_mod <- readRDS("./out/model_results/cotton_mod_PRISM.RDS")
+# soy_mod <- readRDS("./out/model_results/soy_mod_PRISM.RDS")
+# wwheat_mod <- readRDS("./out/model_results/wwheat_mod_PRISM.RDS")
 
-corn_data <- readRDS("./out/model_results/corn_PRISM.RDS")
-cotton_data <- readRDS("./out/model_results/cotton_PRISM.RDS")
-soy_data <- readRDS("./out/model_results/soy_PRISM.RDS")
-wwheat_data <- readRDS("./out/model_results/wwheat_PRISM.RDS")
-corn_mod <- readRDS("./out/model_results/corn_mod_PRISM.RDS")
-cotton_mod <- readRDS("./out/model_results/cotton_mod_PRISM.RDS")
-soy_mod <- readRDS("./out/model_results/soy_mod_PRISM.RDS")
-wwheat_mod <- readRDS("./out/model_results/wwheat_mod_PRISM.RDS")

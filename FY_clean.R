@@ -36,24 +36,68 @@ source("FY_func.R")
 # PRISM functions for historical data - making tmean and ppt from original list of data from raster extract
 ################################################################################################################################
 
+library(lubridate)
+
+ss <- readRDS("./data/coi_stopstart.RDS")
 roi <- unique(coi$GEOID)
 
-tmax <- readRDS("./data/tmax_list.RDS")
-tmax <- do.call(rbind, tmax)
-tmax <- tmax %>% filter(GEOID %in% roi)  %>% filter(YEAR < 2011) # subset to only include counties in ROI
-tmax <- merge(tmax, coi, by.x = "GEOID", by.y = "GEOID")  # CI
-tmax <- tmax %>% mutate(TMAX = MEAN) %>% dplyr::select(-MEAN)
-comment(tmax) <- "TMAX"
+tmax <- readRDS("C:/Users/A02256433/Desktop/Data/PRISM/daily_county_TMAX.RDS")  # PRISM data folder
+colnames(tmax) <- c("GEOID", "YEAR", "MONTH", "DAY", "TMAX")
+tmax <- tmax %>% filter(GEOID %in% roi)
+tmax_ss <- merge(tmax, ss, by = "GEOID", all = T)
+comment(tmax_ss) <- "TMAX"
+tmax_ss$DOY <- yday(as.Date(paste(tmax_ss$YEAR,tmax_ss$MONTH,tmax_ss$DAY,sep="-"))) 
 
-ppt <-readRDS("./data/ppt_list.RDS")
-ppt <- ppt %>% filter(GEOID %in% roi) %>% filter(YEAR < 2011)
-ppt <- merge(ppt, coi, by.x = "GEOID", by.y = "GEOID") # CI
+ppt <-readRDS("C:/Users/A02256433/Desktop/Data/PRISM/daily_county_PPT.RDS")
+colnames(ppt) <- c("GEOID", "YEAR", "MONTH", "DAY", "PPT")
+ppt <- ppt %>% filter(GEOID %in% roi)
+ppt_ss <- merge(ppt, ss, by = "GEOID", all = T)
+comment(ppt_ss) <- "PPT"
+ppt_ss$DOY <- yday(as.Date(paste(ppt_ss$YEAR,ppt_ss$MONTH,ppt_ss$DAY,sep="-"))) 
 
-saveRDS(tmax, "./data/prism_tmax_roi.RDS")
-saveRDS(ppt, "./data/prism_ppt_roi.RDS")
+saveRDS(tmax_ss, "./data/prism_tmax_roi.RDS")
+saveRDS(ppt_ss, "./data/prism_ppt_roi.RDS")
 
 #################################################################################################################################
 # Extract PRISM to county
 #################################################################################################################################
 
 # see extract_PRISM_FINAL.R - run on SESYNC cluster
+
+#################################################################################################################################
+# Yield
+#################################################################################################################################
+
+clist <- Sys.glob("./data/yield/*.csv")
+
+allcrops <- list()
+for (i in 1:length(clist)) {
+  c <- read.csv(clist[i], stringsAsFactors = F)
+  c <- c %>% 
+    filter(!is.na(County.ANSI)) %>% 
+    dplyr::select(Year, State, State.ANSI, Ag.District, Ag.District.Code, County, County.ANSI, Commodity, Value, Data.Item) %>%
+    mutate(State.ANSI = str_pad(State.ANSI, width = 2, side = "left", pad = "0"),
+           County.ANSI = str_pad(County.ANSI, width = 3, side = "left", pad = "0"),
+           GEOID = paste0(State.ANSI, County.ANSI))
+  allcrops[[i]] <- c
+}
+allcrops <- do.call(rbind, allcrops)
+allcrops$Value[allcrops$Value == "999"] <- "NA"
+allcrops$Value[allcrops$Value == "0"] <- "NA"  
+allcrops$Value[allcrops$Value == "(D)"] <- "NA"  
+allcrops$Value <- as.numeric(gsub(",", "", allcrops$Value))  
+allcrops$GEOID <- as.factor(allcrops$GEOID)
+allcrops$State <- as.factor(allcrops$State)
+allcrops$State.ANSI <- as.factor(allcrops$State.ANSI)
+allcrops$Ag.District <- as.factor(allcrops$Ag.District)
+allcrops$Ag.District.Code <- as.factor(allcrops$Ag.District.Code)
+allcrops$County <- as.factor(allcrops$County)
+allcrops$County.ANSI <- as.factor(allcrops$County.ANSI)
+# remove duplicates from spreadsheet issues/overlap
+allcrops <- distinct(allcrops)
+allcrops$Commodity[allcrops$Data.Item == "WHEAT, SPRING, (EXCL DURUM) - YIELD, MEASURED IN BU / ACRE"] <- "WHEAT"
+allcrops$Commodity[allcrops$Data.Item == "WHEAT, WINTER - YIELD, MEASURED IN BU / ACRE"] <- "WWHEAT"
+allcrops$Commodity <- as.factor(allcrops$Commodity)
+yield <- allcrops %>% select(Year, GEOID, Commodity, Value)
+colnames(yield) <- c("YEAR", "GEOID", "CROP", "YIELD")
+saveRDS(yield, "./data/yield/yield.RDS")
