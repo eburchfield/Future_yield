@@ -1,14 +1,6 @@
 source("FY_load.R")
 source("FY_func.R")
 
-# re-run historical models with scaling vector, linear year, perhaps center on scale paraneter with lower start value for scale vector - play with this
-# negative slopes in the future?  this may mean 85 is better b/c of CO2 fertilization 
-# 0.92, what's direction of scaling (tech trend?) - think through what tscale, tyear plots mean
-# finalize historical models and clean up scripts/data outputs to this point
-# update predictions with scaled data vector - may be applied post models, think on this
-# generate future prediction maps and plots
-
-
 ###################################################################################################################
 # Create data
 ###################################################################################################################
@@ -34,7 +26,6 @@ cotton <- cotton %>% filter(SDD < 100)
 soy <- readRDS("./out/panels/soy_PRISM_30.RDS")
 wwheat <- readRDS("./out/panels/wwheat_PRISM_30.RDS")
 wheat <- readRDS("./out/panels/wheat_PRISM_30.RDS")
-
 
 ###################################################################################################################
 # Run GAM models
@@ -143,13 +134,6 @@ corn <- all_maps("corn")
 soy <- all_maps("soy")
 #wheat <- all_maps("wheat")
 wwheat <- all_maps("wwheat")
-
-###################################################################################################################
-# GAM prediction
-###################################################################################################################
-
-
-# create visuals
 
 
 
